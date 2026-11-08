@@ -31,6 +31,7 @@ SearchResult dijkstra(const RoutingGrid& grid, Position start, Position target) 
     result.cost = -1;
     result.nodesExpanded = 0;
     result.maxQueueSize = 0;
+    result.estimatedMemoryBytes = 0;
 
     if (grid.empty() || grid[0].empty()) {
         return result;
@@ -106,6 +107,11 @@ SearchResult dijkstra(const RoutingGrid& grid, Position start, Position target) 
             }
         }
     }
+    
+    result.estimatedMemoryBytes =
+        distance.size() * sizeof(double) +
+        previous.size() * sizeof(int) +
+        result.maxQueueSize * sizeof(HeapEntry);
 
     if (distance[targetIndex] == infinity) {
         return result;
