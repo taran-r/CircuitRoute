@@ -1,4 +1,146 @@
-<H1> COP3530 - Project 2 </h1>
+# CircuitRoute
+
+CircuitRoute is our COP3530 Project 2. It creates random PCB-style boards and compares how Dijkstra’s algorithm and A* route connections across them.
+
+Each board has obstacles and pairs of points that need to be connected. The program routes one wire at a time, then exports the paths and performance data. Python plots let us see how the two algorithms perform on the same board.
+
+## Setup
+
+You’ll need a C++17 compiler, such as g++ or clang++, and Python 3 with Matplotlib 3.7 or newer.
+
+Build the simulator:
+
+```bash
+g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp -o circuitroute
+```
+
+Install the plotting dependency:
+
+```bash
+python -m pip install -r visualization/requirements.txt
+```
+
+Once A* is connected to the menu, add `src/algorithms/astar.cpp` to the build command.
+
+### Run the checks
+
+These checks cover the board and collision rules. They use `runSimulation` from `main.cpp`, so the first command renames its `main` function to avoid a conflict with the test program.
+
+```bash
+g++ -std=c++17 -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
+g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp -o checks
+./checks
+```
+
+## Using the program
+
+Run `./circuitroute`, or `circuitroute.exe` on Windows. The program saves its output in the current directory.
+
+| Option | What it does |
+| --- | --- |
+| 1. Generate a board | Choose the rows, columns, number of obstacle cells, number of connections, random seed, and maximum cell cost. |
+| 2. Print board | Show the grid and connection pairs. Large boards are skipped because they would be hard to read in the terminal. |
+| 3. Save input board | Save the board as `dataset.txt` and `dataset_cells.csv`. |
+| 4. Load saved input board | Load a board from `dataset.txt`. |
+| 5. Run Dijkstra | Route the connections in ID order and export the results. |
+| 6. Run A* | Route the same connections on a fresh copy of the board, once A* is connected to the menu. |
+| 7. Collision demonstration | Run a small example where a wire is rejected for crossing another wire. |
+
+For the project benchmark, we use a 400 × 400 board with 30,000 obstacle cells and 20–50 connections. Reusing a seed generates the same board, which helps us make a fair comparison.
+
+### Routing rules
+
+Wires cannot pass through obstacles, previously routed wires, or another connection’s endpoints. Since wires are placed one at a time, an earlier route can block a later connection. To keep that rare, each connection's start and target are generated 5 to 60 cells apart (see `MIN_WIRE_DISTANCE` and `MAX_WIRE_DISTANCE` in `src/pcb/board.cpp`).
+
+The program checks each returned route. If a route breaks these rules, it is marked invalid and is not drawn.
+
+## Saved files
+
+### Board file: `dataset.txt`
+
+The board file starts with the version label `CIRCUITROUTE_1`, followed by the board settings, cells, and connection pairs:
+
+```text
+CIRCUITROUTE_1
+<rows> <cols> <seed>
+<cell> <movement_cost>
+...
+<number of connections>
+<id> <start_row> <start_col> <target_row> <target_col>
+...
+```
+
+There is one cell entry per grid position, listed row by row. A cell is either `.` for empty space or `#` for an obstacle. Each connection also gets its own line.
+
+### Cell CSV files
+
+`dataset_cells.csv`, `*_input_cells.csv`, and `*_routed_cells.csv` contain one row per cell:
+
+```text
+row,col,blocked,movement_cost,wire_id,cell
+```
+
+Rows and columns start at zero. The `blocked` field is either `0` or `1`, and the `cell` field uses these symbols:
+
+| Symbol | Meaning |
+| --- | --- |
+| `.` | Empty cell |
+| `#` | Obstacle |
+| `S` | Start point |
+| `T` | Target point |
+| `*` | Routed wire |
+
+### Performance data: `<algorithm>_metrics.csv`
+
+This file contains one row per connection:
+
+```text
+algorithm,connection_id,source_row,source_col,target_row,target_col,status,search_time_ms,nodes_expanded,max_queue_size,estimated_search_memory_bytes,path_cost
+```
+
+It records the search time, nodes expanded, largest queue size, estimated search memory, and path cost. The status is one of `success`, `no_path`, `invalid_path`, `invalid_cost`, or `invalid_result`.
+
+Path cost adds up the movement costs of the cells entered along the route. The start cell does not count. Failed connections have a path cost of `-1`.
+
+### Route data: `<algorithm>_paths.csv`
+
+Successful routes are saved one cell at a time:
+
+```text
+connection_id,step,row,col
+```
+
+In these filenames, `<algorithm>` is either `dijkstra` or `astar`. Each run also saves `<algorithm>_input.txt` and `<algorithm>_input_cells.csv` so we can check which board was used.
+
+## Plotting the results
+
+Run these commands from the project folder with the exported files available. Use `--data-dir` if the data is in another folder.
+
+Show the generated board from `dataset_cells.csv`:
+
+```bash
+python visualization/plot_routes.py
+```
+
+Show Dijkstra’s routes:
+
+```bash
+python visualization/plot_routes.py --algorithm dijkstra
+```
+
+Compare Dijkstra and A* side by side:
+
+```bash
+python visualization/plot_routes.py --compare
+```
+
+Plots are saved in `visualization/output/`. Add `--show` to open a plot window, or `--output file.png` to choose the output filename.
+
+Failed connections are marked with red crosses. The comparison only runs when both algorithms used the same board and connection order.
+
+---
+
+# COP3530 - Project 2 (course template documentation)
 This is the template for Project 2 repositories. It includes all the assignment instructions and documentation to help you use GitHub.
 
 <h2> Table of Contents </h2>
