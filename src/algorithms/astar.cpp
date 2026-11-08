@@ -1,12 +1,20 @@
 #include "astar.h"
 #include "min_heap.h"
+#include <algorithm>
 #include <cstdlib>
 #include <limits>
-#include <algorithm>
+#include <vector>
 
 namespace {
 
+const int ROW_DELTA[4] = {-1, 1, 0, 0};
+const int COL_DELTA[4] = {0, 0, -1, 1};
 constexpr double MIN_MOVEMENT_COST = 1.0;
+
+bool inBounds(Position cell, int rows, int cols) {
+    return cell.row >= 0 && cell.row < rows &&
+           cell.col >= 0 && cell.col < cols;
+}
 
 double manhattanDistance(Position current, Position target) {
     int rowDistance = std::abs(current.row - target.row);
@@ -14,12 +22,10 @@ double manhattanDistance(Position current, Position target) {
     return (rowDistance + colDistance) * MIN_MOVEMENT_COST;
 }
 
-} 
+}
 
-AStarResult astar(const std::vector<std::vector<char>>& grid,
-                  Position start, Position target) {
-    AStarResult result{};
-    result.cost = std::numeric_limits<double>::infinity();
+SearchResult astar(const RoutingGrid& grid, Position start, Position target) {
+    SearchResult result{};
 
     if (grid.empty() || grid[0].empty()) {
         return result;
@@ -28,32 +34,27 @@ AStarResult astar(const std::vector<std::vector<char>>& grid,
     int rows = static_cast<int>(grid.size());
     int cols = static_cast<int>(grid[0].size());
 
-    for (int row = 0; row < rows; ++row) {
-        if (grid[row].size() != grid[0].size()) {
+    for (const auto& row : grid) {
+        if (row.size() != grid[0].size()) {
             return result;
         }
     }
 
-    if (start.row < 0 || start.row >= rows ||
-        start.col < 0 || start.col >= cols ||
-        target.row < 0 || target.row >= rows ||
-        target.col < 0 || target.col >= cols) {
+    if (!inBounds(start, rows, cols) || !inBounds(target, rows, cols)) {
         return result;
     }
 
-    if (grid[start.row][start.col] == '#' ||
-        grid[target.row][target.col] == '#') {
+    if (grid[start.row][start.col].symbol == '#' ||
+        grid[target.row][target.col].symbol == '#') {
         return result;
     }
-
-    const int ROW_DELTA[4] = {-1, 1, 0, 0};
-    const int COL_DELTA[4] = {0, 0, -1, 1};
 
     int startIndex = start.row * cols + start.col;
     int targetIndex = target.row * cols + target.col;
     int cellCount = rows * cols;
 
-    std::vector<double> distance(cellCount, result.cost);
+    const double infinity = std::numeric_limits<double>::infinity();
+    std::vector<double> distance(cellCount, infinity);
     std::vector<int> previous(cellCount, -1);
     MinHeap heap;
 
@@ -67,16 +68,15 @@ AStarResult astar(const std::vector<std::vector<char>>& grid,
 
         double bestPriority = distance[current.vertex]
                             + manhattanDistance(cell, target);
-
         if (current.priority > bestPriority) {
             continue;
         }
 
-        ++result.nodesExpand;
+        ++result.nodesExpanded;
 
         if (current.vertex == targetIndex) {
             result.found = true;
-            result.cost = distance[targetIndex];
+            result.cost = static_cast<long long>(distance[targetIndex]);
 
             for (int index = targetIndex; index != -1; index = previous[index]) {
                 result.path.push_back(Position{index / cols, index % cols});
@@ -86,32 +86,27 @@ AStarResult astar(const std::vector<std::vector<char>>& grid,
         }
 
         for (int i = 0; i < 4; ++i) {
-            int nextRow = cell.row + ROW_DELTA[i];
-            int nextCol = cell.col + COL_DELTA[i];
-
-            if (nextRow < 0 || nextRow >= rows ||
-                nextCol < 0 || nextCol >= cols) {
+            Position next{cell.row + ROW_DELTA[i], cell.col + COL_DELTA[i]};
+            if (!inBounds(next, rows, cols)) {
                 continue;
             }
 
-            if (grid[nextRow][nextCol] == '#') {
+            const RoutingCell& nextCell = grid[next.row][next.col];
+            if (nextCell.symbol == '#') {
                 continue;
             }
 
-            int nextIndex = nextRow * cols + nextCol;
-            double newDistance = distance[current.vertex] + 1.0;
+            int nextIndex = next.row * cols + next.col;
+            double newDistance = distance[current.vertex] + nextCell.movementCost;
 
             if (newDistance < distance[nextIndex]) {
                 distance[nextIndex] = newDistance;
                 previous[nextIndex] = current.vertex;
-
-                Position next{nextRow, nextCol};
                 heap.insert(newDistance + manhattanDistance(next, target),
                             nextIndex);
 
-                int queueSize = static_cast<int>(heap.size());
-                if (queueSize > result.maxQueueSize) {
-                    result.maxQueueSize = queueSize;
+                if (heap.size() > result.maxQueueSize) {
+                    result.maxQueueSize = heap.size();
                 }
             }
         }

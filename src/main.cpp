@@ -1,6 +1,6 @@
 #include "pcb/board.h"
 #include "algorithms/dijkstra.h"
-
+#include "algorithms/astar.h"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -10,7 +10,7 @@
 using SearchFunction = SearchResult (*)(const RoutingGrid&, Position, Position);
 
 SearchFunction dijkstraAlgorithm = dijkstra;
-SearchFunction aStarAlgorithm = nullptr;
+SearchFunction aStarAlgorithm = astar;
 
 bool readNumber(const std::string& prompt, int minimum, int maximum, int& value) {
     while (true) {
