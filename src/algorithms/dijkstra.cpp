@@ -107,8 +107,7 @@ SearchResult dijkstra(const RoutingGrid& grid, Position start, Position target) 
             }
         }
     }
-
-    // Estimate of primary search storage, not exact process memory.
+    
     result.estimatedMemoryBytes =
         distance.size() * sizeof(double) +
         previous.size() * sizeof(int) +
