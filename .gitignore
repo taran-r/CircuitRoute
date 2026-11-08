@@ -1,3 +1,13 @@
-circuitroute.exe
+*.o
+*.obj
+*.exe
+circuitroute
+checks
+test_min_heap
+test_dijkstra
+test_astar
+build/
+/*.csv
+/*.txt
 visualization/output/
 __pycache__/
