@@ -19,17 +19,17 @@ bool inBounds(int row, int col, int rows, int cols) {
     return row >= 0 && col >= 0 && row < rows && col < cols;
 }
 
-bool isBlocked(char cell) {
-    return cell == '#';
+bool isBlocked(const RoutingCell& cell) {
+    return cell.symbol == '#';
 }
 
 }
 
-DijkstraResult dijkstra(const std::vector<std::vector<char>>& grid, Position start, Position target) {
-    DijkstraResult result;
+SearchResult dijkstra(const RoutingGrid& grid, Position start, Position target) {
+    SearchResult result;
     result.found = false;
-    result.cost = -1.0;
-    result.nodesExpand = 0;
+    result.cost = -1;
+    result.nodesExpanded = 0;
     result.maxQueueSize = 0;
 
     if (grid.empty() || grid[0].empty()) {
@@ -72,7 +72,7 @@ DijkstraResult dijkstra(const std::vector<std::vector<char>>& grid, Position sta
             continue;
         }
 
-        result.nodesExpand++;
+        result.nodesExpanded++;
 
         if (current.vertex == targetIndex) {
             break;
@@ -92,14 +92,14 @@ DijkstraResult dijkstra(const std::vector<std::vector<char>>& grid, Position sta
             }
 
             int nextIndex = toIndex(nextRow, nextCol, cols);
-            double newDistance = distance[current.vertex] + 1.0;
+            double newDistance = distance[current.vertex] + grid[nextRow][nextCol].movementCost;
 
             if (newDistance < distance[nextIndex]) {
                 distance[nextIndex] = newDistance;
                 previous[nextIndex] = current.vertex;
                 heap.insert(newDistance, nextIndex);
 
-                int queueSize = static_cast<int>(heap.size());
+                std::size_t queueSize = heap.size();
                 if (queueSize > result.maxQueueSize) {
                     result.maxQueueSize = queueSize;
                 }
@@ -114,7 +114,7 @@ DijkstraResult dijkstra(const std::vector<std::vector<char>>& grid, Position sta
 
 
     result.found = true;
-    result.cost = distance[targetIndex];
+    result.cost = static_cast<long long>(distance[targetIndex]);
     std::vector<Position> reversedPath;
     for (int index = targetIndex; index != -1; index = previous[index]) {
         reversedPath.push_back(toPosition(index, cols));

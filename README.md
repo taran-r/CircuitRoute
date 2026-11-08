@@ -50,7 +50,7 @@ For the project benchmark, we use a 400 × 400 board with 30,000 obstacle cells 
 
 ### Routing rules
 
-Wires cannot pass through obstacles, previously routed wires, or another connection’s endpoints. Since wires are placed one at a time, an earlier route can block a later connection.
+Wires cannot pass through obstacles, previously routed wires, or another connection’s endpoints. Since wires are placed one at a time, an earlier route can block a later connection. To keep that rare, each connection's start and target are generated 5 to 60 cells apart (see `MIN_WIRE_DISTANCE` and `MAX_WIRE_DISTANCE` in `src/pcb/board.cpp`).
 
 The program checks each returned route. If a route breaks these rules, it is marked invalid and is not drawn.
 

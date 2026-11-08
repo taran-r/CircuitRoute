@@ -93,6 +93,10 @@ int Board::getMovementCost(Position position) const {
     return movementCosts[position.row][position.col];
 }
 
+// Connection endpoints are placed this many cells apart (up and down plus left and right).
+const int MIN_WIRE_DISTANCE = 5;
+const int MAX_WIRE_DISTANCE = 60;
+
 bool Board::generateRandom(int obstacleCount, int connectionCount,
                           unsigned int randomSeed, int maximumCost) {
     if (obstacleCount < 0 || connectionCount < 0 || maximumCost < 1) {
@@ -127,9 +131,45 @@ bool Board::generateRandom(int obstacleCount, int connectionCount,
         Position p = positions[next++];
         replacement.addAnObstacle(p.row, p.col);
     }
+
+    // Remember which cells are taken (obstacles and connection endpoints).
+    std::vector<std::vector<bool>> used(row, std::vector<bool>(col, false));
+    for (int i = 0; i < obstacleCount; i++) {
+        used[positions[i].row][positions[i].col] = true;
+    }
+
     for (int id = 0; id < connectionCount; id++) {
-        Position start = positions[next++];
-        Position target = positions[next++];
+        // The start is the next free cell in the shuffled list.
+        while (used[positions[next].row][positions[next].col]) {
+            next++;
+        }
+        Position start = positions[next];
+        used[start.row][start.col] = true;
+
+        // Try to put the target close to the start. Short wires leave room for
+        // later wires, because wires cannot cross each other.
+        Position target = start;
+        bool foundNearby = false;
+        std::uniform_int_distribution<int> randomOffset(-MAX_WIRE_DISTANCE, MAX_WIRE_DISTANCE);
+        for (int attempt = 0; attempt < 200 && !foundNearby; attempt++) {
+            int targetRow = start.row + randomOffset(generator);
+            int targetCol = start.col + randomOffset(generator);
+            int distance = std::abs(targetRow - start.row) + std::abs(targetCol - start.col);
+            if (distance >= MIN_WIRE_DISTANCE && distance <= MAX_WIRE_DISTANCE &&
+                replacement.insideBoard(targetRow, targetCol) && !used[targetRow][targetCol]) {
+                target = {targetRow, targetCol};
+                foundNearby = true;
+            }
+        }
+
+        // Crowded or tiny boards: fall back to any free cell.
+        if (!foundNearby) {
+            while (used[positions[next].row][positions[next].col]) {
+                next++;
+            }
+            target = positions[next];
+        }
+        used[target.row][target.col] = true;
         replacement.addConnection(id, start, target);
     }
     *this = replacement;
