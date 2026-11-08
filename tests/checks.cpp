@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 
-void runSimulation(const Board&, SearchResult (*)(const Board&, const Connection&),
+void runSimulation(const Board&, SearchResult (*)(const RoutingGrid&, Position, Position),
                    const std::string&);
 
 std::string contents(const std::string& filename) {
@@ -16,24 +16,29 @@ std::string contents(const std::string& filename) {
     return text.str();
 }
 
-SearchResult manualSearch(const Board& board, const Connection& connection) {
+SearchResult manualSearch(const RoutingGrid& grid, Position start, Position) {
     SearchResult result;
-    if (connection.id == 0) {
+    if (start.row == 4 && start.col == 1) {
         result.found = true;
+        result.cost = 0;
         for (int c = 1; c <= 8; c++) {
             result.path.push_back({4, c});
+            if (c > 1) {
+                result.cost += grid[4][c].movementCost;
+            }
         }
     } else {
-
-        assert(!board.isWalkable({4, 5}, connection));
+        // The first wire occupies (4, 5), so it must be blocked for the second connection.
+        assert(grid[4][5].symbol == '#');
     }
     return result;
 }
 
-SearchResult invalidSearch(const Board&, const Connection& connection) {
+SearchResult invalidSearch(const RoutingGrid&, Position start, Position target) {
     SearchResult result;
     result.found = true;
-    result.path = {connection.start, connection.target};
+    result.path = {start, target};
+    result.cost = 0;
     return result;
 }
 

@@ -33,7 +33,7 @@ void runSimulation(const Board& original, SearchFunction search,
                    const std::string& algorithmName) {
     if (search == nullptr) {
         std::cout << "This algorithm has not been connected yet.\n";
-        std::cout << "See GUIDE.md for the shared interface.\n";
+        std::cout << "Set aStarAlgorithm in main.cpp to enable it.\n";
         return;
     }
 
