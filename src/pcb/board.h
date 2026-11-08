@@ -15,12 +15,19 @@ struct Connection {
     Position target;
 };
 
+struct RoutingCell {
+    char symbol = '.';
+    int movementCost = 1;
+};
+
+using RoutingGrid = std::vector<std::vector<RoutingCell>>;
 
 struct SearchResult {
     bool found = false;
     std::vector<Position> path;
+    long long cost = -1;
     std::size_t nodesExpanded = 0;
-    std::size_t peakFrontierSize = 0;
+    std::size_t maxQueueSize = 0;
 
     std::size_t estimatedMemoryBytes = 0;
 };
@@ -38,6 +45,9 @@ private:
 public:
     Board(int numberOfRows, int numberOfColumns);
     void print() const;
+    const std::vector<std::vector<char>>& getGrid() const;
+    const std::vector<std::vector<int>>& getMovementCosts() const;
+    RoutingGrid getRoutingGrid(int connectionId) const;
     int getRows() const;
     int getCols() const;
     const std::vector<Connection>& getConnections() const;
@@ -55,6 +65,7 @@ public:
     std::vector<Position> getNeighbors(
         Position position, const Connection& connection) const;
 
+    bool isValidRoute(int connectionId, const std::vector<Position>& path) const;
     bool blockRoute(int connectionId, const std::vector<Position>& path);
     long long getPathCost(const std::vector<Position>& path) const;
 

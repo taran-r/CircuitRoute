@@ -7,7 +7,6 @@
 #include <random>
 #include <stdexcept>
 
-// A small helper used only inside this file.
 static bool samePosition(Position a, Position b) {
     return a.row == b.row && a.col == b.col;
 }
@@ -94,10 +93,87 @@ int Board::getMovementCost(Position position) const {
     return movementCosts[position.row][position.col];
 }
 
-bool Board::blockRoute(
+bool Board::generateRandom(int obstacleCount, int connectionCount,
+                          unsigned int randomSeed, int maximumCost) {
+    if (obstacleCount < 0 || connectionCount < 0 || maximumCost < 1) {
+        return false;
+    }
+    std::size_t totalCells = static_cast<std::size_t>(row) * col;
+    std::size_t needed = static_cast<std::size_t>(obstacleCount) +
+                         2 * static_cast<std::size_t>(connectionCount);
+    if (needed > totalCells) {
+        return false;
+    }
+
+    Board replacement(row, col);
+    replacement.seed = randomSeed;
+    std::vector<Position> positions;
+    for (int r = 0; r < row; r++) {
+        for (int c = 0; c < col; c++) {
+            positions.push_back({r, c});
+        }
+    }
+    std::mt19937 generator(randomSeed);
+    std::shuffle(positions.begin(), positions.end(), generator);
+    std::uniform_int_distribution<int> randomCost(1, maximumCost);
+    for (int r = 0; r < row; r++) {
+        for (int c = 0; c < col; c++) {
+            replacement.setMovementCost(r, c, randomCost(generator));
+        }
+    }
+
+    std::size_t next = 0;
+    for (int i = 0; i < obstacleCount; i++) {
+        Position p = positions[next++];
+        replacement.addAnObstacle(p.row, p.col);
+    }
+    for (int id = 0; id < connectionCount; id++) {
+        Position start = positions[next++];
+        Position target = positions[next++];
+        replacement.addConnection(id, start, target);
+    }
+    *this = replacement;
+    return true;
+}
+
+bool Board::isWalkable(Position position, const Connection& connection) const {
+    if (!insideBoard(position.row, position.col)) {
+        return false;
+    }
+    char cell = grid[position.row][position.col];
+    if (cell == '.') {
+        return true;
+    }
+
+    return (cell == 'S' && samePosition(position, connection.start)) ||
+           (cell == 'T' && samePosition(position, connection.target));
+}
+
+std::vector<Position> Board::getNeighbors(
+    Position position, const Connection& connection) const {
+    std::vector<Position> neighbors;
+    if (!insideBoard(position.row, position.col)) {
+        return neighbors;
+    }
+
+    Position candidates[4] = {
+        {position.row - 1, position.col},
+        {position.row + 1, position.col},
+        {position.row, position.col - 1},
+        {position.row, position.col + 1}
+    };
+    for (Position candidate : candidates) {
+        if (isWalkable(candidate, connection)) {
+            neighbors.push_back(candidate);
+        }
+    }
+    return neighbors;
+}
+
+bool Board::isValidRoute(
     int connectionId,
     const std::vector<Position>& path
-) {
+) const {
 
     Connection connection;
 
@@ -111,14 +187,12 @@ bool Board::blockRoute(
         return false;
     }
 
-\
     Position first = path.front();
 
     if (first.row != connection.start.row ||
         first.col != connection.start.col) {
         return false;
     }
-
 
     Position last = path.back();
 
@@ -134,7 +208,6 @@ bool Board::blockRoute(
         visited[r].resize(col, false);
     }
 
-
     for (std::size_t i = 0; i < path.size(); i++) {
         Position current = path[i];
 
@@ -142,12 +215,10 @@ bool Board::blockRoute(
             return false;
         }
 
-
         if (visited[current.row][current.col]) {
             return false;
         }
 
-     
         if (i > 0) {
             Position previous = path[i - 1];
 
@@ -156,7 +227,6 @@ bool Board::blockRoute(
 
             int totalDistance = rowDistance + colDistance;
 
-      
             if (totalDistance != 1) {
                 return false;
             }
@@ -165,6 +235,13 @@ bool Board::blockRoute(
         visited[current.row][current.col] = true;
     }
 
+    return true;
+}
+
+bool Board::blockRoute(int connectionId, const std::vector<Position>& path) {
+    if (!isValidRoute(connectionId, path)) {
+        return false;
+    }
 
     for (Position position : path) {
         grid[position.row][position.col] = '*';
@@ -174,12 +251,10 @@ bool Board::blockRoute(
     return true;
 }
 
-
 long long Board::getPathCost(
     const std::vector<Position>& path
 ) const {
     long long totalCost = 0;
-
 
     for (std::size_t i = 1; i < path.size(); i++) {
         Position position = path[i];
@@ -192,7 +267,6 @@ long long Board::getPathCost(
     return totalCost;
 }
 
-
 bool Board::saveBoard(const std::string& filename) const {
 
     for (int r = 0; r < row; r++) {
@@ -203,17 +277,14 @@ bool Board::saveBoard(const std::string& filename) const {
         }
     }
 
-
     std::ofstream file(filename);
 
     if (!file.is_open()) {
         return false;
     }
 
-
     file << "CIRCUITROUTE_1\n";
     file << row << ' ' << col << ' ' << seed << '\n';
-
 
     for (int r = 0; r < row; r++) {
         for (int c = 0; c < col; c++) {
@@ -223,7 +294,6 @@ bool Board::saveBoard(const std::string& filename) const {
                 cellToSave = '#';
             }
 
-         
             file << cellToSave << ' ';
             file << movementCosts[r][c] << '\n';
         }
@@ -231,7 +301,6 @@ bool Board::saveBoard(const std::string& filename) const {
 
     file << connections.size() << '\n';
 
-    // Save each connection.
     for (const Connection& connection : connections) {
         file << connection.id << ' ';
         file << connection.start.row << ' ';
@@ -245,14 +314,12 @@ bool Board::saveBoard(const std::string& filename) const {
     return file.good();
 }
 
-
 bool Board::loadBoard(const std::string& filename) {
     std::ifstream file(filename);
 
     if (!file.is_open()) {
         return false;
     }
-
 
     std::string version;
     int newRow;
@@ -277,7 +344,6 @@ bool Board::loadBoard(const std::string& filename) {
         return false;
     }
 
- 
     Board replacement(newRow, newCol);
     replacement.seed = newSeed;
 
@@ -292,7 +358,6 @@ bool Board::loadBoard(const std::string& filename) {
                 return false;
             }
 
-          
             if (cell != '.' && cell != '#') {
                 return false;
             }
@@ -309,14 +374,12 @@ bool Board::loadBoard(const std::string& filename) {
         }
     }
 
-
     int connectionCount;
     file >> connectionCount;
 
     if (file.fail()) {
         return false;
     }
-
 
     int maximumConnections = (newRow * newCol) / 2;
 
@@ -325,7 +388,6 @@ bool Board::loadBoard(const std::string& filename) {
         return false;
     }
 
-    // Read and add each connection.
     for (int i = 0; i < connectionCount; i++) {
         Connection connection;
 
@@ -361,7 +423,6 @@ bool Board::loadBoard(const std::string& filename) {
     return true;
 }
 
-
 bool Board::exportCells(const std::string& filename) const {
     std::ofstream file(filename);
 
@@ -370,7 +431,6 @@ bool Board::exportCells(const std::string& filename) const {
     }
     file << "row,col,blocked,movement_cost,wire_id,cell\n";
 
-    // Write one line for every cell.
     for (int r = 0; r < row; r++) {
         for (int c = 0; c < col; c++) {
             int blocked = 0;
@@ -391,4 +451,33 @@ bool Board::exportCells(const std::string& filename) const {
     file.flush();
 
     return file.good();
+}
+
+const std::vector<std::vector<char>>& Board::getGrid() const {
+    return grid;
+}
+
+const std::vector<std::vector<int>>& Board::getMovementCosts() const {
+    return movementCosts;
+}
+
+RoutingGrid Board::getRoutingGrid(int connectionId) const {
+    Connection connection;
+    if (!getConnection(connectionId, connection)) {
+        throw std::invalid_argument("Connection ID does not exist.");
+    }
+
+    RoutingGrid routingGrid(row, std::vector<RoutingCell>(col));
+    for (int r = 0; r < row; r++) {
+        for (int c = 0; c < col; c++) {
+            Position position{r, c};
+            if (isWalkable(position, connection)) {
+                routingGrid[r][c].symbol = '.';
+            } else {
+                routingGrid[r][c].symbol = '#';
+            }
+            routingGrid[r][c].movementCost = movementCosts[r][c];
+        }
+    }
+    return routingGrid;
 }
