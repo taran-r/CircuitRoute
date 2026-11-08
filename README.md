@@ -11,7 +11,7 @@ You’ll need a C++17 compiler, such as g++ or clang++, and Python 3 with Matplo
 Build the simulator:
 
 ```bash
-g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp -o circuitroute
+g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o circuitroute
 ```
 
 Install the plotting dependency:
@@ -20,16 +20,21 @@ Install the plotting dependency:
 python -m pip install -r visualization/requirements.txt
 ```
 
-Once A* is connected to the menu, add `src/algorithms/astar.cpp` to the build command.
-
 ### Run the checks
 
 These checks cover the board and collision rules. They use `runSimulation` from `main.cpp`, so the first command renames its `main` function to avoid a conflict with the test program.
 
 ```bash
 g++ -std=c++17 -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
-g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp -o checks
+g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o checks
 ./checks
+```
+
+The A* check compares its routes with Dijkstra on small boards:
+
+```bash
+g++ -std=c++17 tests/test_astar.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
+./test_astar
 ```
 
 ## Using the program
