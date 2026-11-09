@@ -93,7 +93,6 @@ int Board::getMovementCost(Position position) const {
     return movementCosts[position.row][position.col];
 }
 
-// Connection endpoints are placed this many cells apart (up and down plus left and right).
 const int MIN_WIRE_DISTANCE = 5;
 const int MAX_WIRE_DISTANCE = 60;
 
@@ -132,22 +131,18 @@ bool Board::generateRandom(int obstacleCount, int connectionCount,
         replacement.addAnObstacle(p.row, p.col);
     }
 
-    // Remember which cells are taken (obstacles and connection endpoints).
     std::vector<std::vector<bool>> used(row, std::vector<bool>(col, false));
     for (int i = 0; i < obstacleCount; i++) {
         used[positions[i].row][positions[i].col] = true;
     }
 
     for (int id = 0; id < connectionCount; id++) {
-        // The start is the next free cell in the shuffled list.
         while (used[positions[next].row][positions[next].col]) {
             next++;
         }
         Position start = positions[next];
         used[start.row][start.col] = true;
 
-        // Try to put the target close to the start. Short wires leave room for
-        // later wires, because wires cannot cross each other.
         Position target = start;
         bool foundNearby = false;
         std::uniform_int_distribution<int> randomOffset(-MAX_WIRE_DISTANCE, MAX_WIRE_DISTANCE);
@@ -162,7 +157,6 @@ bool Board::generateRandom(int obstacleCount, int connectionCount,
             }
         }
 
-        // Crowded or tiny boards: fall back to any free cell.
         if (!foundNearby) {
             while (used[positions[next].row][positions[next].col]) {
                 next++;

@@ -28,7 +28,6 @@ SearchResult manualSearch(const RoutingGrid& grid, Position start, Position) {
             }
         }
     } else {
-        // The first wire occupies (4, 5), so it must be blocked for the second connection.
         assert(grid[4][5].symbol == '#');
     }
     return result;
