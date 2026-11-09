@@ -12,6 +12,7 @@ Build the simulator:
 
 ```bash
 g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o circuitroute
+g++ -std=c++17 -O2 -Wall -Wextra src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o circuitroute
 ```
 
 Install the plotting dependency:
@@ -63,6 +64,24 @@ The app needs only Python (with Tkinter, which comes with it), Matplotlib and g+
 
 The sections below describe the terminal menu the app uses behind the scenes.
 
+g++ -std=c++17 -Wall -Wextra -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
+g++ -std=c++17 -Wall -Wextra tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o checks
+./checks
+```
+
+### Run the algorithm correctness tests
+
+```bash
+g++ -std=c++17 -Wall -Wextra tests/test_min_heap.cpp -o test_min_heap
+./test_min_heap
+
+g++ -std=c++17 -Wall -Wextra tests/test_dijkstra.cpp src/algorithms/dijkstra.cpp -o test_dijkstra
+./test_dijkstra
+
+g++ -std=c++17 -Wall -Wextra tests/test_astar.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
+./test_astar
+```
+
 ## Using the program
 
 Run `./circuitroute`, or `circuitroute.exe` on Windows. The program saves its output in the current directory.
@@ -74,7 +93,7 @@ Run `./circuitroute`, or `circuitroute.exe` on Windows. The program saves its ou
 | 3. Save input board | Save the board as `dataset.txt` and `dataset_cells.csv`. |
 | 4. Load saved input board | Load a board from `dataset.txt`. |
 | 5. Run Dijkstra | Route the connections in ID order and export the results. |
-| 6. Run A* | Route the same connections on a fresh copy of the board, once A* is connected to the menu. |
+| 6. Run A* | Route the same connections on a fresh copy of the board. |
 | 7. Collision demonstration | Run a small example where a wire is rejected for crossing another wire. |
 
 For the project benchmark, we use a 400 × 400 board with 30,000 obstacle cells and 20–50 connections. Reusing a seed generates the same board, which helps us make a fair comparison.
@@ -223,6 +242,35 @@ What we found:
 - A* is not better at everything: on long wires its heap grew larger than Dijkstra's (about 2,400 entries against 420).
 - Memory use is almost the same, since both are dominated by the same two tables of one entry per cell.
 - Both always returned paths of the same cost, so the speedup does not cost any route quality.
+## Dijkstra and the binary min-heap
+
+Dijkstra explores the board by always expanding the reachable cell with the lowest known path cost. From each expanded cell it tries the four orthogonal neighbors. Moving into a neighbor adds that neighbor’s `movementCost` to the path cost (the start cell does not add cost). Obstacles and cells marked blocked for the current connection are skipped.
+
+The open set is the custom binary min-heap in `src/algorithms/min_heap.h`. Each heap entry stores a priority and a flat cell index (`row * cols + col`). Dijkstra inserts the start cell at cost 0. Whenever a cheaper path to a cell is found, a new heap entry is inserted. The heap does not support decrease-key; older higher-cost entries for the same cell may remain.
+
+When an entry is extracted, Dijkstra compares its priority to the best distance stored for that cell. If the priority is worse, the entry is stale and is ignored, so it does not count toward `nodesExpanded`. Otherwise the cell is expanded and its neighbors are relaxed. `maxQueueSize` records the largest heap size seen during the search.
+
+After the target is reached, the `previous` array is walked backward from the target to the start and then reversed to rebuild the path. If the target’s distance stays infinite, the search reports that no route exists.
+
+`estimatedMemoryBytes` is a simple estimate of the main search arrays (`distance`, `previous`) plus peak heap storage. It is not exact process memory.
+
+### Complexity
+
+Let `V` be the number of walkable cells and `E` the number of grid edges. Each insert and extract-min on the binary heap is `O(log n)`, where `n` is the current number of heap entries. With duplicate entries allowed, `n` can grow beyond `V`.
+
+For Dijkstra with this heap, the running time is `O((V + E) log n)`. On a four-neighbor grid, `E = O(V)`, so this is `O(V log n)`. Extra space is `O(V)` for the distance and predecessor arrays, plus `O(n)` for the heap.
+
+Heap operations alone: insert and extract-min are `O(log n)`; `empty` and `size` are `O(1)`.
+
+## A*
+
+A* uses the same weighted grid, four-neighbor moves, shared min-heap, duplicate-entry handling, and path reconstruction as Dijkstra. The difference is the heap priority: A* stores `f = g + h`, where `g` is the path cost so far and `h` is Manhattan distance times the minimum movement cost (`1`). That heuristic is admissible when every cell costs at least `1`, so A* still finds an optimal route while often expanding fewer cells than Dijkstra.
+
+Stale heap entries are skipped the same way: an extracted priority is ignored when it is worse than the cell’s best known `g + h`.
+
+### Complexity
+
+With the binary heap and duplicate entries, A* is also `O((V + E) log n)`, or `O(V log n)` on a four-neighbor grid where `E = O(V)`. Extra space is `O(V)` for the distance and predecessor arrays, plus `O(n)` for the heap. The heuristic does not change the worst-case bound, but it can reduce the number of expansions in practice.
 
 ---
 
