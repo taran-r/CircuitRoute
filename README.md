@@ -11,8 +11,7 @@ You’ll need a C++17 compiler, such as g++ or clang++, and Python 3 with Matplo
 Build the simulator:
 
 ```bash
-g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o circuitroute
-g++ -std=c++17 -O2 -Wall -Wextra src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o circuitroute
+g++ -std=c++17 -O2 -Wall -Wextra src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o circuitroute
 ```
 
 Install the plotting dependency:
@@ -26,15 +25,21 @@ python -m pip install -r visualization/requirements.txt
 These checks cover the board and collision rules. They use `runSimulation` from `main.cpp`, so the first command renames its `main` function to avoid a conflict with the test program.
 
 ```bash
-g++ -std=c++17 -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
-g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o checks
+g++ -std=c++17 -Wall -Wextra -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
+g++ -std=c++17 -Wall -Wextra tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o checks
 ./checks
 ```
 
-The A* check compares its routes with Dijkstra on small boards:
+### Run the algorithm correctness tests
 
 ```bash
-g++ -std=c++17 tests/test_astar.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
+g++ -std=c++17 -Wall -Wextra tests/test_min_heap.cpp -o test_min_heap
+./test_min_heap
+
+g++ -std=c++17 -Wall -Wextra tests/test_dijkstra.cpp src/algorithms/dijkstra.cpp -o test_dijkstra
+./test_dijkstra
+
+g++ -std=c++17 -Wall -Wextra tests/test_astar.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
 ./test_astar
 ```
 
@@ -54,6 +59,7 @@ C++ program if needed and runs it for you, so it does everything the terminal me
 | Generate and route both | Does the steps above in one click. |
 | Save board... / Load board... | Saves the board to a `.txt` file (plus a `_cells.csv`) or loads one you saved earlier. |
 | Collision demo | Shows a small example of a crossing wire being rejected. |
+| Performance benchmark | Compares Dijkstra and A* and writes `benchmark_results.csv`. |
 | Save picture... | Saves the current board view as a PNG. |
 
 Under the board, drag the slider, press **Play**, **Back** or **Next**, or use the left and right arrow keys to watch the wires
@@ -63,24 +69,6 @@ The app needs only Python (with Tkinter, which comes with it), Matplotlib and g+
 `visualization/output/`, so it never touches your own `circuitroute.exe`.
 
 The sections below describe the terminal menu the app uses behind the scenes.
-
-g++ -std=c++17 -Wall -Wextra -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
-g++ -std=c++17 -Wall -Wextra tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o checks
-./checks
-```
-
-### Run the algorithm correctness tests
-
-```bash
-g++ -std=c++17 -Wall -Wextra tests/test_min_heap.cpp -o test_min_heap
-./test_min_heap
-
-g++ -std=c++17 -Wall -Wextra tests/test_dijkstra.cpp src/algorithms/dijkstra.cpp -o test_dijkstra
-./test_dijkstra
-
-g++ -std=c++17 -Wall -Wextra tests/test_astar.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
-./test_astar
-```
 
 ## Using the program
 
@@ -95,6 +83,7 @@ Run `./circuitroute`, or `circuitroute.exe` on Windows. The program saves its ou
 | 5. Run Dijkstra | Route the connections in ID order and export the results. |
 | 6. Run A* | Route the same connections on a fresh copy of the board. |
 | 7. Collision demonstration | Run a small example where a wire is rejected for crossing another wire. |
+| 8. Run performance benchmark | Compare Dijkstra and A* on shared boards and write `benchmark_results.csv`. |
 
 For the project benchmark, we use a 400 × 400 board with 30,000 obstacle cells and 20–50 connections. Reusing a seed generates the same board, which helps us make a fair comparison.
 
@@ -242,6 +231,7 @@ What we found:
 - A* is not better at everything: on long wires its heap grew larger than Dijkstra's (about 2,400 entries against 420).
 - Memory use is almost the same, since both are dominated by the same two tables of one entry per cell.
 - Both always returned paths of the same cost, so the speedup does not cost any route quality.
+
 ## Dijkstra and the binary min-heap
 
 Dijkstra explores the board by always expanding the reachable cell with the lowest known path cost. From each expanded cell it tries the four orthogonal neighbors. Moving into a neighbor adds that neighbor’s `movementCost` to the path cost (the start cell does not add cost). Obstacles and cells marked blocked for the current connection are skipped.
