@@ -107,6 +107,10 @@ SearchResult dijkstra(const RoutingGrid& grid, Position start, Position target) 
         }
     }
 
+    result.estimatedMemoryBytes =
+        static_cast<std::size_t>(cellCount) * (sizeof(double) + sizeof(int)) +
+        result.maxQueueSize * sizeof(HeapEntry);
+
     if (distance[targetIndex] == infinity) {
         return result;
     }

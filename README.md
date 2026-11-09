@@ -11,7 +11,7 @@ You’ll need a C++17 compiler, such as g++ or clang++, and Python 3 with Matplo
 Build the simulator:
 
 ```bash
-g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o circuitroute
+g++ -std=c++17 -O2 src/main.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o circuitroute
 ```
 
 Install the plotting dependency:
@@ -26,7 +26,7 @@ These checks cover the board and collision rules. They use `runSimulation` from 
 
 ```bash
 g++ -std=c++17 -c src/main.cpp -Dmain=circuitroute_main -o main_for_tests.o
-g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o checks
+g++ -std=c++17 tests/checks.cpp main_for_tests.o src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp src/benchmark/benchmark.cpp -o checks
 ./checks
 ```
 
@@ -36,6 +36,32 @@ The A* check compares its routes with Dijkstra on small boards:
 g++ -std=c++17 tests/test_astar.cpp src/pcb/board.cpp src/algorithms/dijkstra.cpp src/algorithms/astar.cpp -o test_astar
 ./test_astar
 ```
+
+## Easiest way: the CircuitRoute app
+
+```bash
+python visualization/app.py
+```
+
+A window opens with a form for the board size, obstacles, connections, seed and cell costs. The app builds the
+C++ program if needed and runs it for you, so it does everything the terminal menu and the plot scripts do:
+
+| Button | What it does |
+| --- | --- |
+| Generate board | Creates the board and shows it (green dots = starts, blue squares = targets). |
+| Run Dijkstra / Run A* / Run both | Routes every connection on that board. Running one algorithm after the other puts both side by side. |
+| Generate and route both | Does the steps above in one click. |
+| Save board... / Load board... | Saves the board to a `.txt` file (plus a `_cells.csv`) or loads one you saved earlier. |
+| Collision demo | Shows a small example of a crossing wire being rejected. |
+| Save picture... | Saves the current board view as a PNG. |
+
+Under the board, drag the slider, press **Play**, **Back** or **Next**, or use the left and right arrow keys to watch the wires
+being routed one at a time. **Both / Dijkstra / A\*** switches between the side-by-side view and one larger board.
+The **Connections** tab lists every connection with its start, target, and how each algorithm did.
+The app needs only Python (with Tkinter, which comes with it), Matplotlib and g++. It builds its own copy of the program and keeps its working files in
+`visualization/output/`, so it never touches your own `circuitroute.exe`.
+
+The sections below describe the terminal menu the app uses behind the scenes.
 
 ## Using the program
 
@@ -142,6 +168,61 @@ python visualization/plot_routes.py --compare
 Plots are saved in `visualization/output/`. Add `--show` to open a plot window, or `--output file.png` to choose the output filename.
 
 Failed connections are marked with red crosses. The comparison only runs when both algorithms used the same board and connection order.
+
+### Step through the routing
+
+To watch the wires being routed one at a time, run the interactive viewer from the folder that has the exported files (or pass `--data-dir`):
+
+```bash
+python visualization/interactive_viewer.py
+```
+
+- Drag the **Wires routed** slider, or press the left and right arrow keys, to show the first N connections in routing order.
+- Use the **Both / Dijkstra / A\*** buttons to switch between the side-by-side view and a single, larger board.
+- Gray dots mark where every wire will start and end. A red cross appears when a connection fails.
+- The line under the slider shows the most recently routed connection and its path cost.
+
+Add `--wires 10 --view dijkstra --save step10.png` to save one frame as a picture instead of opening a window.
+
+## Performance comparison
+
+Menu option 8 (or the **Performance benchmark** button in the app) compares Dijkstra and A* directly.
+Both use our own binary min-heap (`src/algorithms/min_heap.h`), so the only difference is the A* distance guess.
+
+How it measures:
+- Every search runs on the same random board, alone (no earlier wires in the way), so the two algorithms
+  face identical problems. Each search is timed 3 times and the fastest time is kept.
+- Boards are 400 x 400 (160,000 cells, 30,000 obstacles) unless a test says otherwise.
+- **Distance test:** 4 groups of start and target distances (5-60, 61-150, 151-300, 301-600 cells), 8 wires per group on each
+  of 5 boards.
+- **Cost test:** the same, once with every cell costing 1 and once with cell costs from 1 to 9.
+- **Size test:** boards of 100, 200, 300 and 400 cells per side with long wires.
+- The program also checks that both algorithms find a path of the same cost every time.
+
+It saves `benchmark_results.csv` (one row per search, with time, cells expanded, heap size, memory estimate and path cost).
+Draw the charts and print a summary table with:
+
+```bash
+python visualization/plot_performance.py
+```
+
+Results from one run on our machine (times vary by computer, the ratios are what matter):
+
+| Wire distance | Dijkstra | A* | A* speedup | Cells expanded (Dijkstra / A*) |
+| --- | --- | --- | --- | --- |
+| 5-60 | 0.70 ms | 0.45 ms | 1.6x | 2,177 / 135 |
+| 61-150 | 2.43 ms | 0.58 ms | 4.2x | 15,641 / 981 |
+| 151-300 | 7.33 ms | 1.04 ms | 7.0x | 53,393 / 4,035 |
+| 301-600 | 12.98 ms | 2.12 ms | 6.1x | 99,697 / 10,970 |
+
+What we found:
+- A* expands far fewer cells, and the longer the wire, the more it saves. Dijkstra spreads out in every direction
+  until it reaches the target, while A* heads toward it.
+- With cell costs from 1 to 9 the advantage drops to about 1.1x - 1.5x. A* guesses the distance left as if every
+  cell costs 1 (the only guess that never overestimates), so it stops being a good guide when most cells cost more.
+- A* is not better at everything: on long wires its heap grew larger than Dijkstra's (about 2,400 entries against 420).
+- Memory use is almost the same, since both are dominated by the same two tables of one entry per cell.
+- Both always returned paths of the same cost, so the speedup does not cost any route quality.
 
 ---
 

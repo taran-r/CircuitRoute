@@ -57,6 +57,8 @@ SearchResult astar(const RoutingGrid& grid, Position start, Position target) {
     std::vector<double> distance(cellCount, infinity);
     std::vector<int> previous(cellCount, -1);
     MinHeap heap;
+    const std::size_t tableBytes =
+        static_cast<std::size_t>(cellCount) * (sizeof(double) + sizeof(int));
 
     distance[startIndex] = 0.0;
     heap.insert(manhattanDistance(start, target), startIndex);
@@ -77,6 +79,7 @@ SearchResult astar(const RoutingGrid& grid, Position start, Position target) {
         if (current.vertex == targetIndex) {
             result.found = true;
             result.cost = static_cast<long long>(distance[targetIndex]);
+            result.estimatedMemoryBytes = tableBytes + result.maxQueueSize * sizeof(HeapEntry);
 
             for (int index = targetIndex; index != -1; index = previous[index]) {
                 result.path.push_back(Position{index / cols, index % cols});
@@ -112,5 +115,6 @@ SearchResult astar(const RoutingGrid& grid, Position start, Position target) {
         }
     }
 
+    result.estimatedMemoryBytes = tableBytes + result.maxQueueSize * sizeof(HeapEntry);
     return result;
 }

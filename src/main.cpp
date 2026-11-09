@@ -1,13 +1,12 @@
 #include "pcb/board.h"
 #include "algorithms/dijkstra.h"
 #include "algorithms/astar.h"
+#include "benchmark/benchmark.h"
 #include <chrono>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <string>
-
-using SearchFunction = SearchResult (*)(const RoutingGrid&, Position, Position);
 
 SearchFunction dijkstraAlgorithm = dijkstra;
 SearchFunction aStarAlgorithm = astar;
@@ -169,9 +168,10 @@ int main() {
                   << "5. Run Dijkstra\n"
                   << "6. Run A*\n"
                   << "7. Run manual collision demonstration\n"
+                  << "8. Run performance benchmark\n"
                   << "0. Exit\n";
         int choice;
-        if (!readNumber("Choice: ", 0, 7, choice) || choice == 0) {
+        if (!readNumber("Choice: ", 0, 8, choice) || choice == 0) {
             break;
         }
         if (choice == 1) {
@@ -222,6 +222,8 @@ int main() {
             runSimulation(board, aStarAlgorithm, "astar");
         } else if (choice == 7) {
             runCollisionDemo();
+        } else if (choice == 8) {
+            runBenchmark("benchmark_results.csv", dijkstraAlgorithm, aStarAlgorithm);
         }
     }
     return 0;
